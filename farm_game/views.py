@@ -33,3 +33,40 @@ class GachaView(APIView):
             "sub_id": sub_id,
             "current_money": profile.money
         })
+
+from django.utils import timezone
+
+class PlantView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        # รับข้อมูลจากหน้าบ้าน: index ของแปลง, ประเภทพืช, sub_id
+        plot_index = request.data.get('plot_index')
+        plant_type = request.data.get('plant_type')
+        sub_id = request.data.get('sub_id')
+        ticks = request.data.get('ticks')
+
+        try:
+            plot = FarmPlot.objects.get(owner=request.user, plot_index=plot_index)
+            if plot.plant_type:
+                return Response({"error": "แปลงนี้มีพืชปลูกอยู่แล้ว!"}, status=400)
+            
+            # บันทึกข้อมูลการปลูกลง Database
+            plot.plant_type = plant_type
+            plot.sub_id = sub_id
+            plot.ticks_remaining = ticks
+            plot.is_dead = False
+            plot.save()
+            
+            return Response({"status": "ปลูกพืชเรียบร้อย!"})
+        except FarmPlot.DoesNotExist:
+            return Response({"error": "ไม่พบแปลงผัก"}, status=404)
+
+class SyncFarmView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        # ดึงข้อมูลทุกแปลงของผู้เล่นคนนี้ส่งกลับไปที่หน้าบ้าน
+        plots = FarmPlot.objects.filter(owner=request.user).order_index('plot_index')
+        serializer = FarmPlotSerializer(plots, many=True)
+        return Response(serializer.data)
