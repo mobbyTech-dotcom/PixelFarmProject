@@ -1,14 +1,11 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="th">
 <head>
     <meta charset="UTF-8">
     <title>Pixel Farm Online</title>
-    <style>
-        .farm-grid { display: grid; grid-template-columns: repeat(4, 100px); gap: 10px; margin: 20px 0; }
-        .plot { width: 100px; height: 100px; border: 2px solid #555; display: flex; align-items: center; justify-content: center; cursor: pointer; background: #8bc34a; }
-        .plot.locked { background: #9e9e9e; cursor: not-allowed; }
-        .stats { font-family: sans-serif; font-size: 1.2rem; margin-bottom: 10px; }
-    </style>
+    <!-- เรียกใช้ CSS ที่เราเพิ่งสร้าง -->
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
 </head>
 <body>
     <div class="stats">
@@ -18,64 +15,10 @@
     <button onclick="pullGacha()">สุ่มกาชา (50💰)</button>
 
     <div class="farm-grid" id="farm-grid">
-        <!-- ช่องแปลงผัก 8 ช่องจะถูกสร้างด้วย JS -->
+        <!-- ช่องแปลงผักจะถูกสร้างอัตโนมัติด้วย JS -->
     </div>
 
-    <script>
-        // ฟังก์ชันช่วยดึง CSRF Token เพื่อความปลอดภัยของ Django
-        function getCookie(name) {
-            let cookieValue = null;
-            if (document.cookie && document.cookie !== '') {
-                const cookies = document.cookie.split(';');
-                for (let i = 0; i < cookies.length; i++) {
-                    const cookie = cookies[i].trim();
-                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                        break;
-                    }
-                }
-            }
-            return cookieValue;
-        }
-
-        // 🎰 สุ่มกาชาผ่าน Server
-        async function pullGacha() {
-            const response = await fetch('/farm/api/gacha/', {
-                method: 'POST',
-                headers: {
-                    'X-CSRFToken': getCookie('csrftoken'),
-                    'Content-Type': 'application/json'
-                }
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                alert(`ยินดีด้วย! คุณได้รับพืชระดับ: ${data.tier} (${data.sub_id})`);
-                document.getElementById('money-display').innerText = data.current_money;
-                // หลังจากสุ่มได้ คุณสามารถเขียน Logic ให้เลือกแปลงเพื่อปลูกต่อได้เลย
-            } else {
-                const err = await response.json();
-                alert(err.error);
-            }
-        }
-
-        // 🔄 ดึงข้อมูลฟาร์มจาก Database มาแสดงผล
-        async function syncFarm() {
-            const response = await fetch('/farm/api/sync/');
-            const plots = await response.json();
-            const grid = document.getElementById('farm-grid');
-            grid.innerHTML = '';
-
-            plots.forEach(plot => {
-                const div = document.createElement('div');
-                div.className = `plot ${plot.is_unlocked ? '' : 'locked'}`;
-                div.innerText = plot.plant_type ? `${plot.plant_type}\n(${plot.ticks_remaining}s)` : (plot.is_unlocked ? 'ว่าง' : '🔒');
-                grid.appendChild(div);
-            });
-        }
-
-        // รันครั้งแรกเมื่อเปิดหน้าเว็บ
-        syncFarm();
-    </script>
+    <!-- เรียกใช้ JS ที่เราเพิ่งสร้าง -->
+    <script src="{% static 'js/game.js' %}"></script>
 </body>
 </html>
