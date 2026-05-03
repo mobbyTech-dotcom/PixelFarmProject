@@ -70,3 +70,72 @@ class SyncFarmView(APIView):
         plots = FarmPlot.objects.filter(owner=request.user).order_index('plot_index')
         serializer = FarmPlotSerializer(plots, many=True)
         return Response(serializer.data)
+
+# ... (โค้ดเดิม GachaView, PlantView, SyncFarmView) ...
+
+class HarvestView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        plot_index = request.data.get('plot_index')
+        try:
+            plot = FarmPlot.objects.get(owner=request.user, plot_index=plot_index)
+            profile = PlayerProfile.objects.get(user=request.user)
+            
+            if not plot.plant_type:
+                return Response({"error": "ไม่มีพืชให้เก็บเกี่ยว!"}, status=400)
+            
+            if plot.ticks_remaining > 0:
+                return Response({"error": "พืชยังไม่โตเต็มที่!"}, status=400)
+
+            # ระบบราคาพืช (High Risk, High Return)
+            reward = 0
+            if not plot.is_dead:
+                tier_rewards = {'god': 1000, 'gold': 500, 'silver': 150, 'bronze': 60}
+                # สกัดชื่อ tier ออกมาจาก plant_type
+                tier = plot.plant_type
+                reward = tier_rewards.get(tier, 50)
+                
+                # โบนัสดินทอง
+                if plot.is_rich_soil:
+                    reward = int(reward * 1.5)
+            else:
+                reward = 5 # ขายซากพืชตายได้นิดหน่อย
+
+            # รับเงินและล้างแปลงผัก
+            profile.money += reward
+            profile.save()
+            
+            plot.plant_type = None
+            plot.sub_id = None
+            plot.is_dead = False
+            plot.needs_water = False
+            plot.has_bug = False
+            plot.save()
+
+            return Response({"status": f"เก็บเกี่ยวสำเร็จ ได้รับ {reward} 💰", "current_money": profile.money})
+
+        except FarmPlot.DoesNotExist:
+            return Response({"error": "ไม่พบแปลงผัก"}, status=404)
+
+class ActionView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        plot_index = request.data.get('plot_index')
+        action_type = request.data.get('action') # 'water' หรือ 'bug'
+        
+        try:
+            plot = FarmPlot.objects.get(owner=request.user, plot_index=plot_index)
+            if action_type == 'water' and plot.needs_water:
+                plot.needs_water = False
+                plot.save()
+                return Response({"status": "รดน้ำชุ่มฉ่ำแล้ว! 💦"})
+            elif action_type == 'bug' and plot.has_bug:
+                plot.has_bug = False
+                plot.save()
+                return Response({"status": "กำจัดแมลงเรียบร้อย! 🐛🔨"})
+            
+            return Response({"error": "ไม่จำเป็นต้องทำสิ่งนี้"}, status=400)
+        except FarmPlot.DoesNotExist:
+            return Response({"error": "ไม่พบแปลงผัก"}, status=404)
